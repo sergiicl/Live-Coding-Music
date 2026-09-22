@@ -11,4 +11,4 @@ def send_command(text):
 
 if __name__ == "__main__":
     # Ejemplo de uso: cambia la nota que suena en la pista 0
-    send_command("eliminar_nota pista=0 nota=60 inicio=0 duracion=2")
+    send_command("crear_nota pista=0 nota=64 inicio=0 duracion=2")
