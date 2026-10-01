@@ -1,125 +1,190 @@
--- ==========================================================
--- LIVE PATTERN (Sin afectar compases anteriores al reiniciar)
--- ==========================================================
-
---------------------------------------------------------------
--- CONFIGURACIÓN
---------------------------------------------------------------
-
-local patron = {   -- C4
-      -- Silencio
-    {65, 0.5},   -- G4
-    {64, 1.5},   -- E4
-    {58, 0.5},    -- A4
+local PATTERN = {
+    {60,  0.5},
+    {64,  1.5},
+    {58,  0.5},
     {nil, 0.5},
-    {60, 1.0},
+    {70,  1.0},
+    {67, 0.5}
 }
- 
-local VELOCIDAD = 100
-local CANAL = 0
-local ANTICIPACION_QN = 1.0
 
---------------------------------------------------------------
--- VALIDAR Y CALCULAR PATRÓN
---------------------------------------------------------------
+local VELOCITY        = 100
+local CHANNEL         = 0
 
-local duracion_patron = 0
-for _, evento in ipairs(patron) do
-    duracion_patron = duracion_patron + evento[2]
+local PATTERN_FILE =
+    reaper.GetResourcePath()
+    .. "/Scripts/live_pattern_config.txt"
+
+local last_content_read = nil
+
+local function parse(content)
+
+    local new_pattern = {}
+
+    for line in content:gmatch("[^\r\n]+") do
+
+        local pitch_str, dur_str = line:match("^([^,]*),([^,]+)$")
+
+        if dur_str then
+
+            local duration = tonumber(dur_str)
+            local pitch = tonumber(pitch_str)  
+
+            if duration then
+                table.insert(new_pattern, {pitch, duration})
+            end
+
+        end
+
+    end
+
+    if #new_pattern == 0 then
+        return nil
+    end
+
+    return new_pattern
+
 end
 
-if duracion_patron <= 0 then return end
+local function get_create_track() 
 
-local track = reaper.GetSelectedTrack(0, 0)
-if not track then
-    reaper.ShowMessageBox("Selecciona una pista MIDI.", "Error", 0)
-    return
+    local track = reaper.GetSelectedTrack(0, 0)
+
+    if track then
+        return track
+    end
+
+    local num_tracks = reaper.CountTracks(0)
+    reaper.InsertTrackAtIndex(num_tracks, true)
+    track = reaper.GetTrack(0, num_tracks)
+    reaper.SetOnlyTrackSelected(track)
+    return track
+
 end
 
---------------------------------------------------------------
--- ESTADO E INICIALIZACIÓN
---------------------------------------------------------------
+local track = get_create_track()
 
-local compases_creados = {}
+local function duration_pattern(pattern)
 
--- Determinamos la posición actual real (si está sonando o parado)
-local play_state = reaper.GetPlayState()
-local posicion_actual = (play_state & 1 ~= 0) and reaper.GetPlayPosition() or reaper.GetCursorPosition()
-local qn_actual = reaper.TimeMap2_timeToQN(0, posicion_actual)
+    local total = 0
 
--- El siguiente compás SIEMPRE será el próximo bloque limpio por delante de donde estamos
-local compas_siguiente = math.ceil(qn_actual / duracion_patron) * duracion_patron
+    for _, event in ipairs(pattern) do
+        total = total + event[2]
+    end
 
---------------------------------------------------------------
--- CREAR UN BLOQUE DEL PATRÓN
---------------------------------------------------------------
+    return total
 
-function crear_compas(inicio_qn)
+end
 
-    local final_qn = inicio_qn + duracion_patron
+local PATTERN_LENGHT = duration_pattern(PATTERN)
 
-    local inicio_tiempo = reaper.TimeMap2_QNToTime(0, inicio_qn)
-    local final_tiempo = reaper.TimeMap2_QNToTime(0, final_qn)
 
-    local item = reaper.CreateNewMIDIItemInProj(track, inicio_tiempo, final_tiempo, false)
-    if not item then return end
+local created = {}
+
+local function reload_pattern()
+
+    local f = io.open(PATTERN_FILE, "r")
+
+    if not f then
+        return
+    end
+
+    local content = f:read("*all")
+    f:close()
+
+    if content == last_content_read then
+        return
+    end
+
+    last_content_read = content
+
+    local new_pattern = parse(content)
+
+    if not new_pattern then
+        reaper.ShowConsoleMsg("AVISO: live_pattern_config.txt vacío o con formato inválido, se ignora.\n")
+        return
+    end
+
+    PATTERN = new_pattern
+    PATTERN_LENGHT = duration_pattern(PATTERN)
+
+end
+
+
+local function new_compass(start_qn)
+
+    local end_qn = start_qn + PATTERN_LENGHT
+
+    local start_time = reaper.TimeMap2_QNToTime(0, start_qn)
+    local end_time   = reaper.TimeMap2_QNToTime(0, end_qn)
+
+    local item = reaper.CreateNewMIDIItemInProj(track, start_time, end_time, false)
+
+    if not item then
+        return
+    end
 
     local take = reaper.GetActiveTake(item)
-    if not take then return end
 
-    reaper.GetSetMediaItemInfo_String(item, "P_NAME", "LIVE_PATTERN", true)
+    if not take then
+        return
+    end
 
-    local posicion_actual_qn = inicio_qn
+    local pos_qn = start_qn
 
-    for _, evento in ipairs(patron) do
-        local pitch = evento[1]
-        local duracion_nota = evento[2]
+    for _, event in ipairs(PATTERN) do
+
+        local pitch  = event[1]
+        local lenght = event[2]
 
         if pitch ~= nil and pitch >= 0 then
-            local ppq_inicio = reaper.MIDI_GetPPQPosFromProjQN(take, posicion_actual_qn)
-            local ppq_final = reaper.MIDI_GetPPQPosFromProjQN(take, posicion_actual_qn + duracion_nota)
+
+            local ppq_inicio = reaper.MIDI_GetPPQPosFromProjQN(take, pos_qn)
+            local ppq_final  = reaper.MIDI_GetPPQPosFromProjQN(take, pos_qn + lenght)
 
             reaper.MIDI_InsertNote(
-                take, false, false, ppq_inicio, ppq_final, CANAL, pitch, VELOCIDAD, true
+                take, false, false,
+                ppq_inicio, ppq_final,
+                CHANNEL, pitch, VELOCITY,
+                true
             )
+
         end
-        posicion_actual_qn = posicion_actual_qn + duracion_nota
+
+        pos_qn = pos_qn + lenght
+
     end
 
     reaper.MIDI_Sort(take)
-    compases_creados[inicio_qn] = true
+
+    created[start_qn] = true
+
     reaper.UpdateItemInProject(item)
+    reaper.UpdateArrange()
+
+    return item
+
 end
 
---------------------------------------------------------------
--- BUCLE DE REPRODUCCIÓN
---------------------------------------------------------------
+local function loop()
 
-function loop()
+    reload_pattern()
 
-    local play_state_loop = reaper.GetPlayState()
+    local playing = (reaper.GetPlayState() & 1) ~= 0
 
-    if play_state_loop & 1 ~= 0 then
+    if playing then
 
-        local posicion = reaper.GetPlayPosition()
-        local play_qn = reaper.TimeMap2_timeToQN(0, posicion)
+        local pos_qn = reaper.TimeMap2_timeToQN(0, reaper.GetPlayPosition())
+        local objective =
+            math.floor((pos_qn + PATTERN_LENGHT) / PATTERN_LENGHT) * PATTERN_LENGHT
 
-        local limite = compas_siguiente - ANTICIPACION_QN
-
-        if play_qn >= limite then
-            if not compases_creados[compas_siguiente] then
-                crear_compas(compas_siguiente)
-                compas_siguiente = compas_siguiente + duracion_patron
-            end
+        if not created[objective] then
+            new_compass(objective)
         end
+
     end
 
     reaper.defer(loop)
+
 end
 
---------------------------------------------------------------
--- INICIAR
---------------------------------------------------------------
-
-reaper.ShowConsoleMsg("=== LIVE PATTERN ACTUALIZADO ===\n")
 loop()
