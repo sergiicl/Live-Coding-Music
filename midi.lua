@@ -1,23 +1,61 @@
 
 local Midi = {}
 
-function Midi.getActiveTake()
-    -- REAPER expone primero el editor MIDI y después el take que contiene
-    -- sus eventos. Ambas referencias pueden no existir.
-    local editor = reaper.MIDIEditor_GetActive()
+-- Busca una pista del proyecto o crea una nueva.
+local function getOrCreateTrack(patternName)
+    local trackName = "[LC] " .. patternName
+    local trackCount = reaper.CountTracks(0)
 
-    if not editor then
-        error("No hay ningun editor MIDI abierto")
+    for i = 0, trackCount - 1 do
+        local track = reaper.GetTrack(0, i)
+        local _, name = reaper.GetSetMediaTrackInfo_String(
+            track, "P_NAME", "", false
+        )
+
+        if name == trackName then
+            return track
+        end
     end
 
-    local take = reaper.MIDIEditor_GetTake(editor)
+    reaper.InsertTrackAtIndex(trackCount, false)
+
+    local track = reaper.GetTrack(0, trackCount)
+
+    reaper.GetSetMediaTrackInfo_String(
+        track, "P_NAME", trackName, true
+    )
+
+    return track
+end
+
+-- Crea un MIDI item y devuelve su take.
+local function createMIDIItem(track, totalBeats)
+    -- Eliminamos los items anteriores de esta pista.
+    -- Las pistas [LC] están reservadas para nuestro programa.
+    local itemCount = reaper.CountTrackMediaItems(track)
+
+    for i = itemCount - 1, 0, -1 do
+        local item = reaper.GetTrackMediaItem(track, i)
+        reaper.DeleteTrackMediaItem(track, item)
+    end
+
+    local item = reaper.CreateNewMIDIItemInProj(
+        track, 0, math.max(totalBeats, 0.5), true
+    )
+
+    if not item then
+        error("No se ha podido crear el MIDI item")
+    end
+
+    local take = reaper.GetActiveTake(item)
 
     if not take then
-        error("No se ha encontrado un MIDI take activo")
+        error("No se ha podido obtener el MIDI take")
     end
 
     return take
 end
+
 
 function Midi.insertPattern(take, pattern, startPPQ, velocity, channel)
     -- Los parámetros opcionales siguen las convenciones de REAPER:
@@ -62,6 +100,17 @@ function Midi.insertPattern(take, pattern, startPPQ, velocity, channel)
 
     -- Ordena los eventos para que REAPER mantenga consistente el take MIDI.
     reaper.MIDI_Sort(take)
+end
+
+-- Crea o actualiza la pista correspondiente a un patrón.
+function Midi.createTrackForPattern(pattern)
+    local track = getOrCreateTrack(pattern.name)
+
+    local take = createMIDIItem(track, pattern.totalBeats)
+
+    Midi.insertPattern(take, pattern, 0)
+
+    return track
 end
 
 return Midi

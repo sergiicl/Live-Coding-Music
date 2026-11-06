@@ -35,20 +35,17 @@ local ast = Parser.parse(tokens)
 -- Tercera fase: compilación musical.
 -- Convierte los nombres de nota en números MIDI y calcula las posiciones
 -- relativas de los eventos.
-local compiledPatterns = {}
+
+
+-- Crear o actualizar una pista por cada patron.
+reaper.Undo_BeginBlock()
 
 for _, assignment in ipairs(ast) do
     local pattern = Patterns.compile(assignment)
-    table.insert(compiledPatterns, pattern)
+    MIDI.createTrackForPattern(pattern)
 end
 
 -- Cuarta fase: integración con REAPER.
--- Busca el take MIDI activo e inserta el patrón desde el beat indicado.
-local take = MIDI.getActiveTake()
--- Insertar todos los patrones simultaneamente
-reaper.Undo_BeginBlock()
-
-for _, pattern in ipairs(compiledPatterns) do
-    MIDI.insertPattern(take, pattern, 0)
-end
+reaper.Undo_EndBlock("Actualizar composicion musical", -1)
+reaper.UpdateArrange()
 
