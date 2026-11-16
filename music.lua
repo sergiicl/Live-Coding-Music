@@ -14,14 +14,15 @@ local noteValues = {
 }
 
 function Music.noteToMIDI(note)
-    -- El lexer ya valida la forma general de la nota, pero esta función
-    -- también se protege porque forma parte de la API pública del módulo.
-    local name = note:sub(1, 1)
-    local octave = tonumber(note:sub(2))
+   -- Soporta formato "c4" y también sostenidos como "c#4" (o sin octava, usando 4 por defecto).
+    local name, sharp, octaveStr = note:match("^([a-g])(#?)(%d*)$")
 
-    if not noteValues[name] or not octave then
+    if not noteValues[name] or not name then
         error("Nota no valida: " .. note)
     end
+
+    local octave = (octaveStr ~= "") and tonumber(octaveStr) or 4
+    local semitoneOffset = (sharp == "#") and 1 or 0
 
     -- En MIDI, C-1 es 0 y cada octava contiene 12 semitonos.
     local midiNote = 12 * (octave + 1) + noteValues[name]
@@ -37,50 +38,66 @@ end
 function Music.compile(ast)
     -- La compilación recibe el AST y genera una representación intermedia
     -- independiente de REAPER.
-    if ast.type ~= "assignment" then
+    if type(ast) ~= "table" or not ast.name or not ast.notes then
         error("Se esperaba una asignacion")
     end
 
-    local pattern = ast.pattern
+    -- Extraer la lista de duraciones desde attributes (por defecto { 0.5 }).
+    local durations = { 0.5 }
+
+    if ast.attributes then
+        for _, attr in ipairs(ast.attributes) do
+            if attr.dur and #attr.dur > 0 then
+                durations = attr.dur
+            end
+        end
+    end
+
+    for _, d in ipairs(durations) do
+        if d <= 0 then
+            error("La duracion debe ser mayor que cero")
+        end
+    end
+
     local events = {}
     local currentBeat = 0
 
     -- Cada evento ocupa la duración del patrón; por eso el siguiente evento
     -- comienza justo cuando termina el anterior.
-    for _, event in ipairs(pattern.events) do
+    for i, item in ipairs(ast.notes) do
+        local eventDuration = durations[((i - 1) % #durations) + 1]
         local compiledEvent = {
-            type = event.type,
             startBeat = currentBeat,
             duration = pattern.duration
         }
 
-        if event.type == "note" then
-            -- Una nota individual se representa como una lista de un pitch.
+        if item == "-" then
+            compiledEvent.type = "rest"
+
+        elseif type(item) == "string" then
+            compiledEvent.type = "note"
             compiledEvent.notes = {
-                Music.noteToMIDI(event.value)
+                Music.noteToMIDI(item)
             }
 
-        elseif event.type == "chord" then
-            -- Un acorde contiene varios pitches que comparten posición
-            -- temporal y duración.
+        elseif type(item) == "table" then
+            compiledEvent.type = "chord"
             compiledEvent.notes = {}
 
-            for _, note in ipairs(event.notes) do
+            for _, noteStr in ipairs(item) do
                 table.insert(
                     compiledEvent.notes,
-                    Music.noteToMIDI(note.value)
+                    Music.noteToMIDI(noteStr)
                 )
             end
 
-        elseif event.type ~= "rest" then
-            -- Esta comprobación protege la frontera entre el parser y el
-            -- compilador si en el futuro se añaden nuevos nodos al AST.
-            error("Tipo de evento desconocido: " .. event.type)
+        else
+            error("Elemento desconocido en el patron: " .. tostring(item))
         end
 
         table.insert(events, compiledEvent)
 
-        currentBeat = currentBeat + pattern.duration
+        currentBeat = currentBeat + eventDuration
     end
 
     -- totalBeats permite a los consumidores conocer la duración completa

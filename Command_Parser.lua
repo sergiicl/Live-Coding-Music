@@ -61,11 +61,10 @@ local G = lpeg.P({
                 ),
 
     -- ARGS → ARG | ARG, ARGS
-    ARGS = Ct((nota_tok + (cora_tok * V("LISTA_NOTAS") * corc_tok) + guion_tok) *
-               (coma_tok * (nota_tok + (cora_tok * V("LISTA_NOTAS") * corc_tok) + guion_tok))^0),
+    ARGS = Ct(V("ARG") * (coma_tok * V("ARG"))^0),
 
     -- ARG → nota | CHORD | guion
-    ARG = Ct(nota_tok + V("CHORD") + guion_tok),
+    ARG = nota_tok + V("CHORD") + guion_tok,
 
     -- CHORD → [LISTA_NOTAS]
     CHORD = Ct(cora_tok * V("LISTA_NOTAS") * corc_tok),
@@ -94,3 +93,4 @@ if ast then
 else
     print("Cadena sintácticamente incorrecta")
 end
+return parser

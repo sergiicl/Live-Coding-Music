@@ -4,10 +4,9 @@
 -- lo compila, y mientras suena Play mantiene cada patron un bloque por
 -- delante del cursor. El COMO (pistas, items, notas) lo hace timeline.lua.
 
-local Lexer = require("lexer")
-local Parser = require("parser")
 local Patterns = require("music")
 local timeline = require("timeline")
+local parser = require("Command_Parser")
 
 local Live = {}
 
@@ -45,23 +44,28 @@ local wasPlaying        = false
 
 local function compileSource(code)
 
-    -- Primera fase: analisis lexico.
-    local tokens = Lexer.tokenize(code)
-
-    -- Segunda fase: analisis sintactico.
-    local ast = Parser.parse(tokens)
-
-    -- Tercera fase: compilacion musical.
+    -- compilacion musical.
     local compiled = {}
+    local lineNum = 0
 
-    for _, assignment in ipairs(ast) do
+    for line in code:gmatch("[^\r\n]+") do
+        lineNum = lineNum +1
+        local trimmed = line:match("^%s*(.-)%s*$")
 
-        local pattern = Patterns.compile(assignment)
+        -- Ignorar lineas vacias y comentarios con --
+        if trimmed ~= "" and not trimmed:match("^%-%-") then
+            local ast = CommandParser:match(trimmed)
 
-        if pattern.totalBeats > 0 then
-            table.insert(compiled, pattern)
+            if not ast then
+                error("Error de sintaxis en la linea " .. lineNum .. ": " .. trimmed)
+            end
+
+            local pattern = Patterns.compile(ast)
+
+            if pattern.totalBeats > 0 then
+                table.insert(compiled, pattern)
+            end
         end
-
     end
 
     if #compiled == 0 then
