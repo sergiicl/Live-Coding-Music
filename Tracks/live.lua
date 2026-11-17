@@ -4,9 +4,9 @@
 -- lo compila, y mientras suena Play mantiene cada patron un bloque por
 -- delante del cursor. El COMO (pistas, items, notas) lo hace timeline.lua.
 
-local Patterns = require("music")
-local timeline = require("timeline")
-local parser = require("Command_Parser")
+local TrackManager = require("Tracks.TrackManager")
+local timeline = require("Tracks.timeline")
+local Command_Parser = require("Parsing.Command_Parser")
 
 local Live = {}
 
@@ -49,22 +49,18 @@ local function compileSource(code)
     local lineNum = 0
 
     for line in code:gmatch("[^\r\n]+") do
-        lineNum = lineNum +1
-        local trimmed = line:match("^%s*(.-)%s*$")
+        local ast = Command_Parser.parse_cmd(line)
 
-        -- Ignorar lineas vacias y comentarios con --
-        if trimmed ~= "" and not trimmed:match("^%-%-") then
-            local ast = CommandParser:match(trimmed)
+        if not ast then
+            error("Error de sintaxis en la linea " .. lineNum .. ": " .. line)
+        else
+            reaper.ShowConsoleMsg("El comando " .. line .. " ha sido correctamente parseado\n")
+        end
 
-            if not ast then
-                error("Error de sintaxis en la linea " .. lineNum .. ": " .. trimmed)
-            end
+        local pattern = TrackManager.parse_ast(ast)
 
-            local pattern = Patterns.compile(ast)
-
-            if pattern.totalBeats > 0 then
-                table.insert(compiled, pattern)
-            end
+        if pattern.totalBeats > 0 then
+            table.insert(compiled, pattern)
         end
     end
 
@@ -73,7 +69,6 @@ local function compileSource(code)
     end
 
     return compiled
-
 end
 
 -- Texto que resume el contenido de un patron, para saber si cambio.
