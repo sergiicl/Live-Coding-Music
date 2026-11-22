@@ -5,7 +5,7 @@
 -- delante del cursor. El COMO (pistas, items, notas) lo hace timeline.lua.
 
 local TrackManager = require("Tracks.TrackManager")
-local timeline = require("Tracks.timeline")
+local timeline = require("tracks.tmln")
 local Command_Parser = require("Parsing.Command_Parser")
 
 local Live = {}

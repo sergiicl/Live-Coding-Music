@@ -1,13 +1,13 @@
 -- Importar librerías necesarias
-local lpeg = require("Parsing.lulpeg")
+local lpeg = require('libs.lulpeg')
 
 -- Funciones de la librería LPeg
 local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
 local C, Ct, Cg = lpeg.C, lpeg.Ct, lpeg.Cg
 
----------------------------------------
------------ ANALISIS LEXICO -----------
----------------------------------------
+-- =====================================
+--            ANALISIS LÉXICO
+-- =====================================
 
 -- Cadenas ignorables
 local escape = S(" \t\n\r\b")
@@ -57,9 +57,9 @@ local float  = token(C(p_float) / tonumber)
 local nombre = token(p_nombre)
 local nota   = token(p_nota)
 
----------------------------------------
---------- ANALISIS SINTACTICO ---------
----------------------------------------
+-- =====================================
+--          ANALISIS SINTACTICO
+-- =====================================
 
 local G = lpeg.P({
     "ASIGNACION", -- Producción inicial
@@ -89,10 +89,10 @@ local G = lpeg.P({
     LISTA_NUM = Ct((float + ent) * (coma * (float + ent))^0)
 })
 
-local Command_Parser = { parser = ignore * G * P(-1) }
+local CommandParser = { parser = ignore * G * P(-1) }
 
-function Command_Parser.parse_cmd(cmd)
-    return Command_Parser.parser:match(cmd)
+function CommandParser.parse_cmd(cmd)
+    return CommandParser.parser:match(cmd)
 end
 
-return Command_Parser
+return CommandParser

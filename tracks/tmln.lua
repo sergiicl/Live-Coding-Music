@@ -1,11 +1,11 @@
--- timeline.lua
+-- tmln.lua
 --
--- Todo lo que toca la API de Reaper para escribir en la timeline:
+-- Todo lo que toca la API de Reaper para escribir en la tmln:
 -- pistas, items y notas, ademas del estado del transporte.
 -- No sabe nada de lenguajes, ni de cuando hay que escribir:
 -- eso lo decide live.lua.
 
-local Timeline = {}
+local tmln = {}
 
 local VELOCITY = 100
 local CHANNEL  = 0
@@ -15,12 +15,12 @@ local CHANNEL  = 0
 -- TRANSPORTE
 -- ==========================================================
 
-function Timeline.isPlaying()
+function tmln.is_playing()
     return (reaper.GetPlayState() & 1) ~= 0
 end
 
 -- Posicion de reproduccion actual, en beats (negras).
-function Timeline.getPlayPositionQN()
+function tmln.get_qn_play_position()
     return reaper.TimeMap2_timeToQN(0, reaper.GetPlayPosition())
 end
 
@@ -48,7 +48,7 @@ end
 
 -- Devuelve la pista con ese nombre, creandola si no existe.
 -- Si se pasa la pista que se tenia guardada y sigue viva, se reutiliza.
-function Timeline.getTrack(name, cachedTrack)
+function tmln.getTrack(name, cachedTrack)
 
     if cachedTrack and reaper.ValidatePtr(cachedTrack, "MediaTrack*") then
         return cachedTrack
@@ -131,7 +131,7 @@ end
 
 -- Crea un item MIDI con el patron, empezando en startQN y con la duracion
 -- del patron. Devuelve el item, o nil si ese hueco ya estaba ocupado.
-function Timeline.createBlock(track, pattern, startQN)
+function tmln.createBlock(track, pattern, startQN)
 
     local startTime = reaper.TimeMap2_QNToTime(0, startQN)
     local endTime   = reaper.TimeMap2_QNToTime(0, startQN + pattern.totalBeats)
@@ -162,15 +162,15 @@ function Timeline.createBlock(track, pattern, startQN)
 end
 
 -- true si el item guardado sigue existiendo (no lo han borrado a mano).
-function Timeline.isItemValid(item)
+function tmln.isItemValid(item)
     return item ~= nil and reaper.ValidatePtr(item, "MediaItem*")
 end
 
-function Timeline.deleteItem(item)
+function tmln.deleteItem(item)
 
     reaper.DeleteTrackMediaItem(reaper.GetMediaItemTrack(item), item)
     reaper.UpdateArrange()
 
 end
 
-return Timeline
+return tmln

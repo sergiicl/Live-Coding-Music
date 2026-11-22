@@ -5,10 +5,5 @@ local scriptDirectory = scriptPath:match("^(.*[\\/])")
 -- Agrega la carpeta del script a la ruta de busqueda de modulos de Lua.
 package.path = scriptDirectory .. "?.lua;" .. package.path
 
--- live: Es el motor en vivo. 
--- Command_Parser: Es el encargado de parsear los comandos
--- timeline: Es el encargado de escribir en Reaper
-
-local Live = require("Tracks.live")
-
-Live.start(scriptDirectory .. "melodias.txt")
+local GUI = require('gui.example-gui-rtk')
+GUI.initGUI()
