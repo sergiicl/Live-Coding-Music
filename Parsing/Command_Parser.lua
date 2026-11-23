@@ -25,6 +25,17 @@ end
 -- Clases léxicas unievaluadas (palabras reservadas)
 local n_kw   = token(P("N"))
 local dur_kw = token(P("dur"))
+local key_kw  = token(P("key"))
+local mode_kw = token(P("mode"))
+
+-- Grados romanos (Tríadas: mayores, menores, disminuidas 'o' y aumentadas '+')
+local p_romano = C(
+    (P("VII") + P("VI") + P("IV") + P("V") + P("III") + P("II") + P("I") +
+     P("vii") + P("vi") + P("iv") + P("v") + P("iii") + P("ii") + P("i")) *
+    (P("o") + P("+"))^-1
+)
+local romano = token(p_romano)
+local modo   = token(C(P("major") + P("minor")))
 
 -- Clases léxicas unievaluadas (símbolos)
 local assign     = token(P("="))
@@ -73,10 +84,9 @@ local G = lpeg.P({
                     Cg(V("ATRIBUTOS"), "attributes")
                  ),
 
-    -- ARGS → ARG | ARG, ARGS
-    -- ARG → nota | CHORD | guion
-    ARGS = Ct((nota + (cor_a * V("LISTA_NOTAS") * cor_c) + guion) *
-              (coma * (nota + (cor_a * V("LISTA_NOTAS") * cor_c) + guion))^0),
+    --ARGS → admite grado romano, nota, acorde manual [...] o silencio -
+    ARGS = Ct((romano + nota + (cor_a * V("LISTA_NOTAS") * cor_c) + guion) *
+              (coma * (romano + nota + (cor_a * V("LISTA_NOTAS") * cor_c) + guion))^0),
 
     -- LISTA_NOTAS → nota | nota, LISTA_NOTAS
     LISTA_NOTAS = Ct(nota * (coma * nota)^0),
@@ -84,8 +94,11 @@ local G = lpeg.P({
     -- ATRIBUTOS → ϵ | LISTA_ATTR 
     ATRIBUTOS = Ct(V("ATTR")^0),
 
-    -- ATTR → .dur(LISTA_NUM) 
-    ATTR = punto * ((dur_kw * par_a * Cg(V("LISTA_NUM"), "dur") * par_c)),
+     -- ATTR → admite .dur(...), .key(c4) y .mode(minor)
+    ATTR = punto * (
+        (dur_kw * par_a * Cg(V("LISTA_NUM"), "dur") * par_c) +
+        (key_kw * par_a * Cg(nota, "key") * par_c) +
+        (mode_kw * par_a * Cg(modo, "mode") * par_c)),
 
     -- LISTA_NUM → ent | float | ent, LISTA_NUM | float, LISTA_NUM
     LISTA_NUM = Ct((float + ent) * (coma * (float + ent))^0)

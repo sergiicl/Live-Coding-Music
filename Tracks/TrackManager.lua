@@ -7,7 +7,17 @@ local TrackManager = { tracks = {} }
 function TrackManager.parse_ast(ast)
     -- Si no viene especificada la duración se usa por defecto el valor de 1 para todas las notas (una negra)
     local dur = ast.attributes["dur"] or { 1 }
-    local notes = Music.parse_notes(ast.notes)
+
+    -- VALIDACIÓN SEMÁNTICA: solo se permiten múltiplos positivos de 0.25
+    for _, d in ipairs(dur) do
+        if d <= 0 or (d % 0.25) ~= 0 then
+            error("Duracion no valida (" .. d .. "): debe ser un multiplo positivo de 0.25 (ej. 0.25, 0.5, 0.75, 1, 2)")
+        end
+    end
+    
+    local key  = ast.attributes["key"]
+    local mode = ast.attributes["mode"]
+    local notes = Music.parse_notes(ast.notes, key, mode)
 
     local events = {}
     local currentBeat = 0
