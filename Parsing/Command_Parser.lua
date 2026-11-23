@@ -1,3 +1,5 @@
+--Parser y lexer
+
 -- Importar librerías necesarias
 local lpeg = require("Parsing.lulpeg")
 

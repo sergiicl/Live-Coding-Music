@@ -1,3 +1,5 @@
+-- Parsea el AST: identifica si es una nota, rest etc
+
 local Music = require("Tracks.Music")
 
 local TrackManager = { tracks = {} }

@@ -1,3 +1,4 @@
+-- Crea el midi
 NOTES_INDEX = {['c'] = 0, ['d'] = 2,  ['e'] = 4, ['f'] = 5, ['g'] = 7, ['a'] = 9, ['b'] = 11}
 
 DEFAULT_OCT = 4 -- La octava que se usa por defecto en caso de que no venga junto a la nota
