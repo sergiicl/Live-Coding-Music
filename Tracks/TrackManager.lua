@@ -14,10 +14,11 @@ function TrackManager.parse_ast(ast)
             error("Duracion no valida (" .. d .. "): debe ser un multiplo positivo de 0.25 (ej. 0.25, 0.5, 0.75, 1, 2)")
         end
     end
-    
-    local key  = ast.attributes["key"]
-    local mode = ast.attributes["mode"]
-    local notes = Music.parse_notes(ast.notes, key, mode)
+
+    local key   = ast.attributes["key"]
+    local mode  = ast.attributes["mode"]
+    local scale = ast.attributes["scale"]
+    local notes = Music.parse_notes(ast.notes, key, mode, scale)
 
     local events = {}
     local currentBeat = 0

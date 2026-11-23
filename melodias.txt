@@ -4,4 +4,4 @@ p2 = N(c3, -, -, -, g3, -, -, -).dur(1)
 
 p3 = N([c4, e4, g3, c5], -, [c4, e4, g4], -).dur(0.25)
 
-p4 = N(I, V, vi, IV).dur(2, 2, 2, 2)
+p4 = N(I, V, vi, IV).dur(2, 2, 2, 2).scale(Lydian)
