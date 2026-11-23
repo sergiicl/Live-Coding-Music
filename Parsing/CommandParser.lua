@@ -1,7 +1,7 @@
 --Parser y lexer
 
 -- Importar librerías necesarias
-local lpeg = require("Parsing.lulpeg")
+local lpeg = require("Libs.lulpeg")
 
 -- Funciones de la librería LPeg
 local P, R, S, V = lpeg.P, lpeg.R, lpeg.S, lpeg.V
