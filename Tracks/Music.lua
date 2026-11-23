@@ -4,7 +4,7 @@ util = util or {}
 util.clamp = util.clamp or function(n, min, max) return math.min(max, math.max(min, n)) end
 util.round = util.round or function(n) return math.floor(n + 0.5) end
 
-local MusicUtil = require("Tracks.musicutil")
+local MusicUtil = require("Libs.musicutil")
 
 NOTES_INDEX = {['c'] = 0, ['d'] = 2, ['e'] = 4, ['f'] = 5, ['g'] = 7, ['a'] = 9, ['b'] = 11}
 

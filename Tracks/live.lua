@@ -6,7 +6,7 @@
 
 local TrackManager = require("Tracks.TrackManager")
 local timeline = require("Tracks.timeline")
-local Command_Parser = require("Parsing.Command_Parser")
+local Command_Parser = require("Parsing.CommandParser")
 
 local Live = {}
 
@@ -164,52 +164,16 @@ local function applyCompiled(compiled)
 
 end
 
-local function reloadSource()
+local gui = require("GUI.Gui")
 
-    local now = reaper.time_precise()
-
-    if now - lastCheckTime < CHECK_INTERVAL then
-        return
-    end
-
-    lastCheckTime = now
-
-    local file = io.open(sourceFile, "r")
-
-    if not file then
-
-        if not missingReported then
-            reaper.ShowConsoleMsg("No se ha encontrado " .. sourceFile .. "\n")
-            missingReported = true
-        end
-
-        return
-
-    end
-
-    missingReported = false
-
-    local code = file:read("*a")
-    file:close()
-
-    if code == lastContentRead then
-        return
-    end
-
-    lastContentRead = code
-
-    -- Si el codigo tiene errores se avisa y se sigue con lo anterior.
+-- Se ejecuta solo cuando pulsas "Evaluar" o Ctrl+Enter en la GUI
+local function evaluateFromGUI(code)
     local ok, result = pcall(compileSource, code)
-
     if not ok then
-        reaper.ShowConsoleMsg("ERROR en el codigo: " .. tostring(result) .. "\n")
-        return
+        return false, result
     end
-
     applyCompiled(result)
-
-    reaper.ShowConsoleMsg("CODIGO RECARGADO (" .. #STATE_LIST .. " patrones)\n")
-
+    return true
 end
 
 
@@ -219,7 +183,6 @@ end
 
 local function loop()
 
-    reloadSource()
 
     local playing = timeline.isPlaying()
 
@@ -244,11 +207,17 @@ local function loop()
 
             -- Primer bloque: el que contiene la posicion actual.
             if state.next_qn == nil then
-                state.next_qn = math.floor(posQN / length) * length
+                state.next_qn = posQN
             end
 
+            -- Si el cursor salto hacia delante que no haya huecos
+            if state.next_qn < posQN - length then
+                state.next_qn = posQN
+            end
+
+
             -- Cada pista mantiene un bloque por delante del cursor.
-            if posQN + length > state.next_qn then
+            while posQN + length > state.next_qn do
 
                 state.track = timeline.getTrack(state.name, state.track)
 
@@ -267,7 +236,11 @@ local function loop()
 
     end
 
-    reaper.defer(loop)
+    local windowOpen = gui.draw(evaluateFromGUI)
+    if windowOpen then
+        reaper.defer(loop)
+    end
+
 
 end
 
